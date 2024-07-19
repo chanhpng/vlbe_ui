@@ -1,0 +1,72 @@
+id: io.github.ad_on_is.Resticity
+runtime: org.gnome.Platform
+runtime-version: '3.38'
+sdk: org.gnome.Sdk
+
+
+
+
+command: resticity
+finish-args:
+  - --share=ipc # Share IPC namespace with the host (necessary for X11).
+  - --socket=x11
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri # OpenGL rendering support.
+  - --talk-name=org.freedesktop.Notifications
+  - --filesystem=home
+  - --filesystem=host
+  - --share=network
+  - --talk-name=org.kde.StatusNotifierWatcher
+
+build-options:
+  build-args:
+    - --share=network
+  env:
+    - GOROOT=/app/sdk/golang
+    - GOBIN=/app/go/bin
+    - CGO_ENABLED=0
+    - NODEROOT=/app/sdk/node
+
+
+modules:
+  # - shared-modules/libappindicator/libappindicator-gtk3-12.10.json
+  - ./restic.yaml
+  - ./rclone.yaml
+  - name: golang
+    buildsystem: simple
+    build-commands:
+      - mkdir -p $GOROOT
+      - mv $(pwd)/* $GOROOT
+    sources:
+      - type: archive
+        url: https://go.dev/dl/go1.22.1.linux-amd64.tar.gz
+        sha256: aab8e15785c997ae20f9c88422ee35d962c4562212bb0f879d052a35c8307c7f
+  - name: nodejs
+    buildsystem: simple
+    build-commands:
+      - mkdir -p $NODEROOT
+      - mv $(pwd)/* $NODEROOT
+    sources:
+      - type: archive
+        url: https://nodejs.org/dist/v21.7.1/node-v21.7.1-linux-x64.tar.xz
+        sha256: cb25d7a4aa57d15f280ce45cd72f95e9d2020702b7ca75c7fe632444f7c0452c
+  - name: wails
+    buildsystem: simple
+    build-commands:
+      - $GOROOT/bin/go install github.com/wailsapp/wails/v2/cmd/wails@v2.8.0
+  - name: resticity
+    buildsystem: simple
+    build-commands:
+      - PATH=$PATH:$GOROOT/bin:$NODEROOT/bin $GOBIN/wails build -ldflags="-X main.Version=1.0.45 -X main.Build=$(date +%FT%T%z)"
+      - install -Dm00755 build/bin/resticity $FLATPAK_DEST/bin/resticity
+      - install -Dm00644 packaging/$FLATPAK_ID.png $FLATPAK_DEST/share/icons/hicolor/256x256/apps/$FLATPAK_ID.png
+      - install -Dm00644 packaging/$FLATPAK_ID.desktop $FLATPAK_DEST/share/applications/$FLATPAK_ID.desktop
+      - install -Dm00644 packaging/flatpak/$FLATPAK_ID.appdata.xml $FLATPAK_DEST/share/appdata/$FLATPAK_ID.appdata.xml
+    sources:
+      - type: dir
+        path: ../../
+
+
+
+  
